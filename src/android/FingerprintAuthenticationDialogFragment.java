@@ -115,7 +115,7 @@ public class FingerprintAuthenticationDialogFragment extends DialogFragment
             @Override
             public void onClick(View view) {
                 FingerprintAuth.onCancelled();
-                dismiss();
+                dismissAllowingStateLoss();
             }
         });
 
@@ -242,31 +242,33 @@ public class FingerprintAuthenticationDialogFragment extends DialogFragment
         if (requestCode == REQUEST_CODE_CONFIRM_DEVICE_CREDENTIALS) {
             // Challenge completed, proceed with using cipher
             if (resultCode == getActivity().RESULT_OK) {
-                FingerprintAuth.onAuthenticated(false /* used backup */);
+                FingerprintAuth.onAuthenticated(false /* used backup */, null);
             } else {
                 // The user canceled or didn’t complete the lock screen
                 // operation. Go to error/cancellation flow.
                 FingerprintAuth.onCancelled();
             }
-            dismiss();
+            dismissAllowingStateLoss();
         }
     }
 
     @Override
-    public void onAuthenticated() {
+    public void onAuthenticated(FingerprintManager.AuthenticationResult result) {
         // Callback from FingerprintUiHelper. Let the activity know that authentication was
         // successful.
-        FingerprintAuth.onAuthenticated(true /* withFingerprint */);
-        dismiss();
+        FingerprintAuth.onAuthenticated(true /* withFingerprint */, result);
+        dismissAllowingStateLoss();
     }
 
     @Override
     public void onError(CharSequence errString) {
         if (!FingerprintAuth.mDisableBackup) {
-            goToBackup();
+            if (getActivity() != null && isAdded()) {
+                goToBackup();
+            }
         } else {
             FingerprintAuth.onError(errString);
-            dismiss();
+            dismissAllowingStateLoss();
 
         }
     }
