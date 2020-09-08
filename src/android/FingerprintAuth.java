@@ -1,9 +1,12 @@
 package com.cordova.plugin.android.fingerprintauth;
+import androidx.biometric.BiometricManager;
 
 import org.apache.cordova.CordovaWebView;
 import org.apache.cordova.CallbackContext;
 import org.apache.cordova.CordovaPlugin;
 import org.apache.cordova.CordovaInterface;
+
+import androidx.biometric.BiometricPrompt;
 
 import android.Manifest;
 import android.annotation.TargetApi;
@@ -100,7 +103,9 @@ public class FingerprintAuth extends CordovaPlugin {
         MISSING_PARAMETERS,
         NO_SUCH_ALGORITHM_EXCEPTION,
         SECURITY_EXCEPTION,
-        FRAGMENT_NOT_EXIST
+        FRAGMENT_NOT_EXIST,
+        BIOMETRIC_HARDWARE_NOT_SUPPORTED,
+        BIOMETRIC_NOT_ENROLLED
     }
 
     public PluginAction mAction;
@@ -133,6 +138,41 @@ public class FingerprintAuth extends CordovaPlugin {
      * Constructor.
      */
     public FingerprintAuth() {
+    }
+
+    private void sendCheckBiometryResult(int biometryType) { 
+        mPluginResult = new PluginResult(PluginResult.Status.OK);
+        mCallbackContext.success(biometryType);
+        mCallbackContext.sendPluginResult(mPluginResult);
+    }
+
+    private PluginError canAuthenticate() {
+        int error = BiometricManager.from(cordova.getContext()).canAuthenticate();
+        switch (error) {
+            case BiometricManager.BIOMETRIC_ERROR_HW_UNAVAILABLE:
+            case BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE:
+                return PluginError.BIOMETRIC_HARDWARE_NOT_SUPPORTED;
+            case BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED:
+                return PluginError.BIOMETRIC_NOT_ENROLLED;
+            default:
+                return null;
+        }
+    }
+
+    private void checkBiometry() {
+        int biometry = -1;      
+        final int currSdk = android.os.Build.VERSION.SDK_INT;       // Before SDK version 28 (inclusive) only existed Fingerprint
+        if(currSdk <= android.os.Build.VERSION_CODES.P && isFingerprintAuthAvailable()) {
+            biometry = 1; // Fingerprint      
+        } else if(currSdk >= android.os.Build.VERSION_CODES.Q && isBiometricAuthAvailable()) {
+            PackageManager pm = mContext.getPackageManager();             
+            if(pm.hasSystemFeature(PackageManager.FEATURE_FACE)) {                   
+                biometry = 2; // Face             
+            } else if(pm.hasSystemFeature(PackageManager.FEATURE_FINGERPRINT)) {                    
+                biometry = 1; // Fingerprint             
+            }      
+        }      
+        sendCheckBiometryResult(biometry);
     }
 
     /**
@@ -431,6 +471,15 @@ public class FingerprintAuth extends CordovaPlugin {
             }
         }
         return false;
+    }
+
+    private boolean isBiometricAuthAvailable() throws SecurityException {
+        BiometricManager biometricManager = mActivity.getSystemService(BiometricManager.class);
+        if (biometricManager != null) {
+            return biometricManager.canAuthenticate() == BiometricManager.BIOMETRIC_SUCCESS;
+        } else {
+            return false;
+        }
     }
 
     private boolean isFingerprintAuthAvailable() throws SecurityException {

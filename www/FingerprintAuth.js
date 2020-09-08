@@ -77,5 +77,9 @@ FingerprintAuth.prototype.isAvailable = function (successCallback, errorCallback
     );
 };
 
+FingerprintAuth.prototype.checkBiomety = function (successCallback, errorCallback) {
+    exec(successCallback, errorCallback, "FingerprintAuth", "checkBiometry")
+}
+
 FingerprintAuth = new FingerprintAuth();
 module.exports = FingerprintAuth;
